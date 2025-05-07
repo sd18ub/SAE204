@@ -1,10 +1,7 @@
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
-import javax.swing.table.TableRowSorter;
-import javax.swing.RowSorter.SortKey;
-import javax.swing.SortOrder;
+import javax.swing.table.*;
 import java.awt.*;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,17 +19,17 @@ public class AIImpactTableViewer {
         for (int i = 0; i < dataList.size(); i++) {
             AIImpactData d = dataList.get(i);
             rowData[i][0] = d.getCountry();
-            rowData[i][1] = Integer.valueOf(d.getYear());
+            rowData[i][1] = d.getYear();
             rowData[i][2] = d.getIndustry();
-            rowData[i][3] = Double.valueOf(d.getAiAdoptionRate());
-            rowData[i][4] = Double.valueOf(d.getContentVolume());
-            rowData[i][5] = Double.valueOf(d.getJobLossRate());
-            rowData[i][6] = Double.valueOf(d.getRevenueIncrease());
-            rowData[i][7] = Double.valueOf(d.getCollaborationRate());
+            rowData[i][3] = d.getAiAdoptionRate();
+            rowData[i][4] = d.getContentVolume();
+            rowData[i][5] = d.getJobLossRate();
+            rowData[i][6] = d.getRevenueIncrease();
+            rowData[i][7] = d.getCollaborationRate();
             rowData[i][8] = d.getTopAIToolsUsed();
             rowData[i][9] = d.getRegulationStatus();
-            rowData[i][10] = Double.valueOf(d.getConsumerTrust());
-            rowData[i][11] = Double.valueOf(d.getMarketShare());
+            rowData[i][10] = d.getConsumerTrust();
+            rowData[i][11] = d.getMarketShare();
         }
 
         DefaultTableModel model = new DefaultTableModel(rowData, columnNames) {
@@ -53,6 +50,34 @@ public class AIImpactTableViewer {
 
         JTable table = new JTable(model);
 
+        // ✅ Rendu personnalisé pour colonnes
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+
+        DefaultTableCellRenderer decimalRenderer = new DefaultTableCellRenderer() {
+            final DecimalFormat df = new DecimalFormat("0.00");
+
+            @Override
+            public void setValue(Object value) {
+                if (value instanceof Number) {
+                    setHorizontalAlignment(SwingConstants.RIGHT);
+                    setText(df.format(value));
+                } else {
+                    super.setValue(value);
+                }
+            }
+        };
+
+        // Centrer Year
+        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
+
+        // Colonnes numériques alignées à droite avec 2 décimales
+        int[] numericCols = {3, 4, 5, 6, 7, 10, 11};
+        for (int col : numericCols) {
+            table.getColumnModel().getColumn(col).setCellRenderer(decimalRenderer);
+        }
+
+        // 🎨 Thème sombre
         table.setBackground(new Color(30, 30, 30));
         table.setForeground(Color.WHITE);
         table.setGridColor(new Color(70, 70, 70));
@@ -70,10 +95,10 @@ public class AIImpactTableViewer {
         table.setRowSorter(sorter);
 
         // ✅ Tri multiple par défaut
-        List<SortKey> sortKeys = new ArrayList<>();
-        sortKeys.add(new SortKey(0, SortOrder.ASCENDING));
-        sortKeys.add(new SortKey(1, SortOrder.DESCENDING));
-        sortKeys.add(new SortKey(3, SortOrder.DESCENDING));
+        List<RowSorter.SortKey> sortKeys = new ArrayList<>();
+        sortKeys.add(new RowSorter.SortKey(0, SortOrder.ASCENDING));
+        sortKeys.add(new RowSorter.SortKey(1, SortOrder.DESCENDING));
+        sortKeys.add(new RowSorter.SortKey(3, SortOrder.DESCENDING));
         sorter.setSortKeys(sortKeys);
         sorter.sort();
 
@@ -101,12 +126,12 @@ public class AIImpactTableViewer {
                 }
 
                 String[] parts = input.split(",");
-                List<SortKey> keys = new ArrayList<>();
+                List<RowSorter.SortKey> keys = new ArrayList<>();
 
                 for (String part : parts) {
                     String[] split = part.split(":");
                     try {
-                        int columnIndex = Integer.parseInt(split[0].trim()) - 1; // 🟢 Corrigé ici
+                        int columnIndex = Integer.parseInt(split[0].trim()) - 1;
                         if (columnIndex < 0 || columnIndex >= table.getColumnCount()) {
                             System.err.println("Numéro de colonne invalide : " + (columnIndex + 1));
                             continue;
@@ -118,12 +143,11 @@ public class AIImpactTableViewer {
                             if (direction.equals("desc")) order = SortOrder.DESCENDING;
                         }
 
-                        keys.add(new SortKey(columnIndex, order));
+                        keys.add(new RowSorter.SortKey(columnIndex, order));
                     } catch (NumberFormatException e) {
                         System.err.println("Entrée invalide pour le tri : " + part);
                     }
                 }
-
 
                 sorter.setSortKeys(keys);
                 sorter.sort();

@@ -2,9 +2,12 @@ import javax.swing.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import org.jfree.chart.*;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.data.category.DefaultCategoryDataset;
 
 public class AIImpactTableViewer {
 
@@ -35,7 +38,7 @@ public class AIImpactTableViewer {
 
         DefaultTableModel model = new DefaultTableModel(rowData, columnNames) {
             @Override
-            public Class getColumnClass(int columnIndex) {
+            public Class<?> getColumnClass(int columnIndex) {
                 return switch (columnIndex) {
                     case 0, 2, 8, 9 -> String.class;
                     case 1 -> Integer.class;
@@ -51,7 +54,6 @@ public class AIImpactTableViewer {
 
         JTable table = new JTable(model);
 
-        //Centrer les choses dans les colonnes
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
 
@@ -69,16 +71,12 @@ public class AIImpactTableViewer {
             }
         };
 
-        // Centrer Year
         table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-
-        // Colonnes numériques alignées à droite avec 2 décimales
         int[] numericCols = {3, 4, 5, 6, 7, 10, 11};
         for (int col : numericCols) {
             table.getColumnModel().getColumn(col).setCellRenderer(decimalRenderer);
         }
 
-        // 🎨 Thème sombre
         table.setBackground(new Color(30, 30, 30));
         table.setForeground(Color.WHITE);
         table.setGridColor(new Color(70, 70, 70));
@@ -95,7 +93,6 @@ public class AIImpactTableViewer {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
         table.setRowSorter(sorter);
 
-        // Tri multiple par défaut
         List<RowSorter.SortKey> sortKeys = new ArrayList<>();
         sortKeys.add(new RowSorter.SortKey(0, SortOrder.ASCENDING));
         sortKeys.add(new RowSorter.SortKey(1, SortOrder.DESCENDING));
@@ -106,7 +103,7 @@ public class AIImpactTableViewer {
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.getViewport().setBackground(new Color(30, 30, 30));
 
-        // 🔢 Zone de tri dynamique
+        // Tri dynamique par champ texte
         JTextField sortField = new JTextField();
         sortField.setBackground(new Color(40, 40, 40));
         sortField.setForeground(Color.WHITE);
@@ -133,21 +130,15 @@ public class AIImpactTableViewer {
                     String[] split = part.split(":");
                     try {
                         int columnIndex = Integer.parseInt(split[0].trim()) - 1;
-                        if (columnIndex < 0 || columnIndex >= table.getColumnCount()) {
-                            System.err.println("Numéro de colonne invalide : " + (columnIndex + 1));
-                            continue;
-                        }
+                        if (columnIndex < 0 || columnIndex >= table.getColumnCount()) continue;
 
                         SortOrder order = SortOrder.ASCENDING;
-                        if (split.length == 2) {
-                            String direction = split[1].trim().toLowerCase();
-                            if (direction.equals("desc")) order = SortOrder.DESCENDING;
+                        if (split.length == 2 && split[1].trim().equalsIgnoreCase("desc")) {
+                            order = SortOrder.DESCENDING;
                         }
 
                         keys.add(new RowSorter.SortKey(columnIndex, order));
-                    } catch (NumberFormatException e) {
-                        System.err.println("Entrée invalide pour le tri : " + part);
-                    }
+                    } catch (NumberFormatException ignored) {}
                 }
 
                 sorter.setSortKeys(keys);
@@ -159,19 +150,106 @@ public class AIImpactTableViewer {
             public void changedUpdate(javax.swing.event.DocumentEvent e) { updateSort(); }
         });
 
-        // 🧩 Panel du haut contenant le champ de tri
+        // 🧩 Panel du haut
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setBackground(new Color(20, 20, 20));
         topPanel.add(sortField, BorderLayout.CENTER);
 
-        // 💡 Fenêtre principale
+        // 🔽 ComboBox + bouton pour choisir le critère du graphique
+        JPanel graphControlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        graphControlPanel.setBackground(new Color(20, 20, 20));
+
+        String[] fields = {
+                "Job Loss (%)", "AI Adoption (%)", "Revenue Increase (%)",
+                "Collab. Rate (%)", "Trust (%)", "Market Share (%)"
+        };
+
+        JComboBox<String> fieldSelector = new JComboBox<>(fields);
+        fieldSelector.setBackground(new Color(50, 50, 50));
+        fieldSelector.setForeground(Color.WHITE);
+        fieldSelector.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        JButton showChartButton = new JButton("Afficher");
+        showChartButton.setFocusPainted(false);
+        showChartButton.setBackground(new Color(60, 60, 60));
+        showChartButton.setForeground(Color.WHITE);
+        showChartButton.setFont(new Font("SansSerif", Font.BOLD, 13));
+
+        showChartButton.addActionListener(e -> {
+            String selectedField = (String) fieldSelector.getSelectedItem();
+            showBarChartByField(dataList, selectedField);
+        });
+
+        graphControlPanel.add(new JLabel("Critère du graphique :"));
+        graphControlPanel.add(fieldSelector);
+        graphControlPanel.add(showChartButton);
+
+        topPanel.add(graphControlPanel, BorderLayout.SOUTH);
+
+        // 🖼️ Frame principale
         JFrame frame = new JFrame("AI Impact Data Viewer - Dark Mode");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1200, 650);
+        frame.setSize(1200, 700);
         frame.setLayout(new BorderLayout());
         frame.getContentPane().setBackground(new Color(20, 20, 20));
         frame.add(topPanel, BorderLayout.NORTH);
         frame.add(scrollPane, BorderLayout.CENTER);
         frame.setVisible(true);
+    }
+
+    public void showBarChartByField(List<AIImpactData> dataList, String fieldLabel) {
+        Map<String, List<Double>> valuesByCountry = new HashMap<>();
+
+        for (AIImpactData data : dataList) {
+            double value;
+
+            switch (fieldLabel) {
+                case "Job Loss (%)":
+                    value = data.getJobLossRate();
+                    break;
+                case "AI Adoption (%)":
+                    value = data.getAiAdoptionRate();
+                    break;
+                case "Revenue Increase (%)":
+                    value = data.getRevenueIncrease();
+                    break;
+                case "Collab. Rate (%)":
+                    value = data.getCollaborationRate();
+                    break;
+                case "Trust (%)":
+                    value = data.getConsumerTrust();
+                    break;
+                case "Market Share (%)":
+                    value = data.getMarketShare();
+                    break;
+                default:
+                    continue;
+            }
+
+            valuesByCountry
+                    .computeIfAbsent(data.getCountry(), k -> new ArrayList<>())
+                    .add(value);
+        }
+
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
+            double average = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            dataset.addValue(average, fieldLabel, entry.getKey());
+        }
+
+        JFreeChart barChart = ChartFactory.createBarChart(
+                "Moyenne de " + fieldLabel + " par Pays",
+                "Pays",
+                fieldLabel,
+                dataset
+        );
+
+        ChartPanel chartPanel = new ChartPanel(barChart);
+        JFrame chartFrame = new JFrame("Graphique - " + fieldLabel);
+        chartFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        chartFrame.setSize(800, 500);
+        chartFrame.add(chartPanel);
+        chartFrame.setVisible(true);
     }
 }

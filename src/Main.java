@@ -12,6 +12,6 @@ public class Main {
         AIImpactTableViewer viewer = new AIImpactTableViewer();
         viewer.showTable(data);
 
-        
+
     }
 }

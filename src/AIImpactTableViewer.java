@@ -4,6 +4,7 @@ import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import org.jfree.chart.*;
 
 public class AIImpactTableViewer {
 
@@ -34,7 +35,7 @@ public class AIImpactTableViewer {
 
         DefaultTableModel model = new DefaultTableModel(rowData, columnNames) {
             @Override
-            public Class<?> getColumnClass(int columnIndex) {
+            public Class getColumnClass(int columnIndex) {
                 return switch (columnIndex) {
                     case 0, 2, 8, 9 -> String.class;
                     case 1 -> Integer.class;
@@ -50,7 +51,7 @@ public class AIImpactTableViewer {
 
         JTable table = new JTable(model);
 
-        // ✅ Rendu personnalisé pour colonnes
+        //Centrer les choses dans les colonnes
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
 
@@ -94,7 +95,7 @@ public class AIImpactTableViewer {
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
         table.setRowSorter(sorter);
 
-        // ✅ Tri multiple par défaut
+        // Tri multiple par défaut
         List<RowSorter.SortKey> sortKeys = new ArrayList<>();
         sortKeys.add(new RowSorter.SortKey(0, SortOrder.ASCENDING));
         sortKeys.add(new RowSorter.SortKey(1, SortOrder.DESCENDING));

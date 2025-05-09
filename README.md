@@ -2,7 +2,7 @@ Hello,
 This is a project formy university.
 First step to have the file is to download the files : 
 
-  - You can use "git clone ...."
+  - You can use "git clone https://github.com/sd18ub/SAE204.git"
   - Or download
 
 Second step is to update dependence. It's jfreechart. The files are directly inside the projet. You just need to unzip the directory and add to your project on Intelij the file called "jfreechart-1.0.19-demo.jar"

@@ -1,323 +1,449 @@
 import javax.swing.*;
 import javax.swing.table.*;
 import java.awt.*;
-import java.text.DecimalFormat;
 import java.util.*;
 import java.util.List;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import org.jfree.chart.*;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.general.DefaultPieDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 
-public class AIImpactTableViewer {
 
-    public void showTable(List<AIImpactData> dataList) {
-        String[] columnNames = {
+public class AIImpactTableViewer  {
+    // Méthode pour afficher un nuage de points (scatter plot)
+    public void showScatterPlot(List<AIImpactData> d, String xCrit, String yCrit) {
+        // Création d'une série pour les données du graphique
+        XYSeries series = new XYSeries(xCrit + " vs " + yCrit);
+
+        // Parcours des données pour ajouter les points au graphique
+        for (AIImpactData x : d) {
+            double xVal = switch (xCrit) {
+                case "Year" -> x.getYear();
+                case "Job Loss (%)" -> x.getJobLossRate();
+                case "AI Adoption (%)" -> x.getAiAdoptionRate();
+                case "Revenue Increase (%)" -> x.getRevenueIncrease();
+                case "Collab. Rate (%)" -> x.getCollaborationRate();
+                case "Trust (%)" -> x.getConsumerTrust();
+                case "Market Share (%)" -> x.getMarketShare();
+                case "Content Volume (TB)" -> x.getContentVolume();
+                default -> -1;
+            };
+
+            double yVal = switch (yCrit) {
+                case "Job Loss (%)" -> x.getJobLossRate();
+                case "AI Adoption (%)" -> x.getAiAdoptionRate();
+                case "Revenue Increase (%)" -> x.getRevenueIncrease();
+                case "Collab. Rate (%)" -> x.getCollaborationRate();
+                case "Trust (%)" -> x.getConsumerTrust();
+                case "Market Share (%)" -> x.getMarketShare();
+                case "Content Volume (TB)" -> x.getContentVolume();
+                default -> -1;
+            };
+
+            // Ajout du point si les valeurs sont valides
+            if (xVal >= 0 && yVal >= 0) {
+                series.add(xVal, yVal);
+            }
+        }
+
+        // Création du dataset et du graphique
+        XYSeriesCollection dataset = new XYSeriesCollection(series);
+        JFreeChart chart = ChartFactory.createScatterPlot(
+                yCrit + " en fonction de " + xCrit,
+                xCrit,
+                yCrit,
+                dataset,
+                PlotOrientation.VERTICAL,
+                true, true, false);
+
+        // Affichage du graphique
+        JFrame fr = new JFrame("Nuage de points");
+        fr.setSize(800, 500);
+        fr.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        fr.add(new ChartPanel(chart));
+        fr.setVisible(true);
+    }
+
+    // Méthode pour afficher la table des données
+    public void showTable(List<AIImpactData> d) {
+        // Définition des colonnes de la table
+        String[] cols = {
                 "Country", "Year", "Industry", "AI Adoption (%)", "Content Volume (TB)",
                 "Job Loss (%)", "Revenue Increase (%)", "Collab. Rate (%)",
                 "Top AI Tool", "Regulation", "Trust (%)", "Market Share (%)"
         };
 
-        Object[][] rowData = new Object[dataList.size()][columnNames.length];
-
-        for (int i = 0; i < dataList.size(); i++) {
-            AIImpactData d = dataList.get(i);
-            rowData[i][0] = d.getCountry();
-            rowData[i][1] = d.getYear();
-            rowData[i][2] = d.getIndustry();
-            rowData[i][3] = d.getAiAdoptionRate();
-            rowData[i][4] = d.getContentVolume();
-            rowData[i][5] = d.getJobLossRate();
-            rowData[i][6] = d.getRevenueIncrease();
-            rowData[i][7] = d.getCollaborationRate();
-            rowData[i][8] = d.getTopAIToolsUsed();
-            rowData[i][9] = d.getRegulationStatus();
-            rowData[i][10] = d.getConsumerTrust();
-            rowData[i][11] = d.getMarketShare();
-        }
-
-        DefaultTableModel model = new DefaultTableModel(rowData, columnNames) {
-            @Override
-            public Class<?> getColumnClass(int columnIndex) {
-                return switch (columnIndex) {
-                    case 0, 2, 8, 9 -> String.class;
-                    case 1 -> Integer.class;
-                    default -> Double.class;
-                };
-            }
-
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        JTable table = new JTable(model);
-
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-
-        DefaultTableCellRenderer decimalRenderer = new DefaultTableCellRenderer() {
-            final DecimalFormat df = new DecimalFormat("0.00");
-
-            @Override
-            public void setValue(Object value) {
-                if (value instanceof Number) {
-                    setHorizontalAlignment(SwingConstants.RIGHT);
-                    setText(df.format(value));
-                } else {
-                    super.setValue(value);
-                }
-            }
-        };
-
-        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-        int[] numericCols = {3, 4, 5, 6, 7, 10, 11};
-        for (int col : numericCols) {
-            table.getColumnModel().getColumn(col).setCellRenderer(decimalRenderer);
-        }
-
-        table.setBackground(new Color(30, 30, 30));
-        table.setForeground(Color.WHITE);
-        table.setGridColor(new Color(70, 70, 70));
-        table.setSelectionBackground(new Color(60, 60, 100));
-        table.setSelectionForeground(Color.WHITE);
-        table.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        table.setRowHeight(24);
-
-        JTableHeader header = table.getTableHeader();
-        header.setBackground(new Color(50, 50, 50));
-        header.setForeground(Color.WHITE);
-        header.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
-        table.setRowSorter(sorter);
-
-        List<RowSorter.SortKey> sortKeys = new ArrayList<>();
-        sortKeys.add(new RowSorter.SortKey(0, SortOrder.ASCENDING));
-        sortKeys.add(new RowSorter.SortKey(1, SortOrder.DESCENDING));
-        sortKeys.add(new RowSorter.SortKey(3, SortOrder.DESCENDING));
-        sorter.setSortKeys(sortKeys);
-        sorter.sort();
-
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.getViewport().setBackground(new Color(30, 30, 30));
-
-        JTextField sortField = new JTextField();
-        sortField.setBackground(new Color(40, 40, 40));
-        sortField.setForeground(Color.WHITE);
-        sortField.setCaretColor(Color.WHITE);
-        sortField.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        sortField.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(Color.GRAY),
-                "Trier par colonnes (ex: 3,1 ou 3:desc,1:asc)", 0, 0,
-                new Font("SansSerif", Font.BOLD, 12), Color.LIGHT_GRAY
-        ));
-
-        sortField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void updateSort() {
-                String input = sortField.getText().trim();
-                if (input.isEmpty()) {
-                    sorter.setSortKeys(null);
-                    return;
-                }
-
-                String[] parts = input.split(",");
-                List<RowSorter.SortKey> keys = new ArrayList<>();
-
-                for (String part : parts) {
-                    String[] split = part.split(":");
-                    try {
-                        int columnIndex = Integer.parseInt(split[0].trim()) - 1;
-                        if (columnIndex < 0 || columnIndex >= table.getColumnCount()) continue;
-
-                        SortOrder order = SortOrder.ASCENDING;
-                        if (split.length == 2 && split[1].trim().equalsIgnoreCase("desc")) {
-                            order = SortOrder.DESCENDING;
-                        }
-
-                        keys.add(new RowSorter.SortKey(columnIndex, order));
-                    } catch (NumberFormatException ignored) {}
-                }
-
-                sorter.setSortKeys(keys);
-                sorter.sort();
-            }
-
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { updateSort(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { updateSort(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { updateSort(); }
-        });
-
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setBackground(new Color(20, 20, 20));
-        topPanel.add(sortField, BorderLayout.CENTER);
-
-        JPanel graphControlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        graphControlPanel.setBackground(new Color(20, 20, 20));
-
+        // Définition des critères de filtrage pour les graphiques
         String[] fields = {
                 "Job Loss (%)", "AI Adoption (%)", "Revenue Increase (%)",
-                "Collab. Rate (%)", "Trust (%)", "Market Share (%)",
-                "Content Volume (TB)"
+                "Collab. Rate (%)", "Trust (%)", "Market Share (%)", "Content Volume (TB)", "Year"
         };
 
-        JComboBox<String> fieldSelector = new JComboBox<>(fields);
-        fieldSelector.setBackground(new Color(50, 50, 50));
-        fieldSelector.setForeground(Color.WHITE);
-        fieldSelector.setFont(new Font("SansSerif", Font.PLAIN, 13));
-
-        JButton showChartButton = new JButton("Afficher");
-        showChartButton.setFocusPainted(false);
-        showChartButton.setBackground(new Color(60, 60, 60));
-        showChartButton.setForeground(Color.WHITE);
-        showChartButton.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-        showChartButton.addActionListener(e -> {
-            String selectedField = (String) fieldSelector.getSelectedItem();
-            showBarChartByField(dataList, selectedField);
-        });
-
-        graphControlPanel.add(new JLabel("Critère du graphique :"));
-        graphControlPanel.add(fieldSelector);
-        graphControlPanel.add(showChartButton);
-
-        topPanel.add(graphControlPanel, BorderLayout.SOUTH);
-
-        JFrame frame = new JFrame("AI Impact Data Viewer - Dark Mode");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1200, 700);
-        frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(new Color(20, 20, 20));
-        frame.add(topPanel, BorderLayout.NORTH);
-        frame.add(scrollPane, BorderLayout.CENTER);
-
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        filterPanel.setBackground(new Color(20, 20, 20));
-
-        Set<String> industries = new TreeSet<>();
-        for (AIImpactData data : dataList) {
-            industries.add(data.getIndustry());
+        // Remplir les données de la table
+        Object[][] data = new Object[d.size()][cols.length];
+        for (int i = 0; i < d.size(); i++) {
+            AIImpactData x = d.get(i);
+            data[i][0] = x.getCountry(); data[i][1] = x.getYear(); data[i][2] = x.getIndustry();
+            data[i][3] = x.getAiAdoptionRate(); data[i][4] = x.getContentVolume();
+            data[i][5] = x.getJobLossRate(); data[i][6] = x.getRevenueIncrease();
+            data[i][7] = x.getCollaborationRate(); data[i][8] = x.getTopAIToolsUsed();
+            data[i][9] = x.getRegulationStatus(); data[i][10] = x.getConsumerTrust();
+            data[i][11] = x.getMarketShare();
         }
 
-        JComboBox<String> industrySelector = new JComboBox<>(industries.toArray(new String[0]));
-        industrySelector.setBackground(new Color(50, 50, 50));
-        industrySelector.setForeground(Color.WHITE);
-        industrySelector.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        // Création du modèle pour la table avec des colonnes non éditables
+        DefaultTableModel m = new DefaultTableModel(data, cols) {
+            public Class getColumnClass(int c) {
+                if (c == 0 || c == 2 || c == 8 || c == 9) return String.class;
+                if (c == 1) return Integer.class;
+                return Double.class;
+            }
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
 
-        JComboBox<String> critereSelector = new JComboBox<>(fields);
-        critereSelector.setBackground(new Color(50, 50, 50));
-        critereSelector.setForeground(Color.WHITE);
-        critereSelector.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        // Configuration de la table
+        JTable t = new JTable(m);
+        t.setBackground(new Color(30, 30, 30));
+        t.setForeground(Color.WHITE);
+        t.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        t.setRowHeight(24);
+        t.setGridColor(new Color(70, 70, 70));
+        t.setSelectionBackground(new Color(60, 60, 100));
+        t.setSelectionForeground(Color.WHITE);
 
-        JButton showFilteredChartButton = new JButton("Afficher graphique filtré");
-        showFilteredChartButton.setFocusPainted(false);
-        showFilteredChartButton.setBackground(new Color(60, 60, 60));
-        showFilteredChartButton.setForeground(Color.WHITE);
-        showFilteredChartButton.setFont(new Font("SansSerif", Font.BOLD, 13));
+        // Configuration de l'entête de la table
+        JTableHeader h = t.getTableHeader();
+        h.setBackground(new Color(50, 50, 50));
+        h.setForeground(Color.WHITE);
+        h.setFont(new Font("SansSerif", Font.BOLD, 13));
 
-        showFilteredChartButton.addActionListener(e -> {
-            String industry = (String) industrySelector.getSelectedItem();
-            String critere = (String) critereSelector.getSelectedItem();
-            showIndustryFilteredChart(dataList, industry, critere);
-        });
+        // Alignement des cellules
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        for (int i = 0; i < t.getColumnCount(); i++) {
+            t.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+        }
 
-        filterPanel.add(new JLabel("Industrie :"));
-        filterPanel.add(industrySelector);
-        filterPanel.add(new JLabel("Critère :"));
-        filterPanel.add(critereSelector);
-        filterPanel.add(showFilteredChartButton);
+        // Tri des données par colonne
+        TableRowSorter<DefaultTableModel> s = new TableRowSorter<>(m);
+        t.setRowSorter(s);
 
-        frame.add(filterPanel, BorderLayout.SOUTH);
-        frame.setVisible(true);
-    }
+        // Ajout de la table dans un JScrollPane pour le défilement
+        JScrollPane sp = new JScrollPane(t);
+        sp.getViewport().setBackground(new Color(30, 30, 30));
 
-    public void showBarChartByField(List<AIImpactData> dataList, String fieldLabel) {
-        Map<String, List<Double>> valuesByCountry = new HashMap<>();
+        // Champ de texte pour le tri par colonnes
+        JTextField f1 = new JTextField();
+        f1.setBackground(new Color(40, 40, 40));
+        f1.setForeground(Color.WHITE);
+        f1.setCaretColor(Color.WHITE);
+        f1.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        f1.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(Color.GRAY),
+                "Trier par colonnes (ex: 3,1 ou 3:desc,1:asc)", 0, 0,
+                new Font("SansSerif", Font.BOLD, 12), Color.LIGHT_GRAY));
 
-        for (AIImpactData data : dataList) {
-            double value;
-            switch (fieldLabel) {
-                case "Job Loss (%)": value = data.getJobLossRate(); break;
-                case "AI Adoption (%)": value = data.getAiAdoptionRate(); break;
-                case "Revenue Increase (%)": value = data.getRevenueIncrease(); break;
-                case "Collab. Rate (%)": value = data.getCollaborationRate(); break;
-                case "Trust (%)": value = data.getConsumerTrust(); break;
-                case "Market Share (%)": value = data.getMarketShare(); break;
-                case "Content Volume (TB)": value = data.getContentVolume(); break;
-                default: continue;
+        // Ajout d'un écouteur pour le champ de texte de tri
+        f1.getDocument().addDocumentListener(new DocumentListener() {
+            void update() {
+                String txt = f1.getText().trim();
+                if (txt.isEmpty()) {
+                    s.setSortKeys(null); return;
+                }
+
+                String[] ps = txt.split(",");
+                List<RowSorter.SortKey> keys = new ArrayList<>();
+                for (String p : ps) {
+                    String[] sp = p.split(":");
+                    try {
+                        int col = Integer.parseInt(sp[0].trim()) - 1;
+                        if (col < 0 || col >= t.getColumnCount()) continue;
+                        SortOrder o = SortOrder.ASCENDING;
+                        if (sp.length == 2 && sp[1].trim().equalsIgnoreCase("desc")) o = SortOrder.DESCENDING;
+                        keys.add(new RowSorter.SortKey(col, o));
+                    } catch (Exception e) {}
+                }
+                s.setSortKeys(keys);
+                s.sort();
             }
 
-            valuesByCountry.computeIfAbsent(data.getCountry(), k -> new ArrayList<>()).add(value);
+            public void insertUpdate(DocumentEvent e) { update(); }
+            public void removeUpdate(DocumentEvent e) { update(); }
+            public void changedUpdate(DocumentEvent e) { update(); }
+        });
+
+        // Panneau pour afficher les filtres de sélection
+        JPanel top = new JPanel(new BorderLayout());
+        top.setBackground(new Color(20, 20, 20));
+        top.add(f1, BorderLayout.CENTER);
+
+        // Panneau de filtres en bas de la fenêtre
+        JPanel filt = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filt.setBackground(new Color(20, 20, 20));
+
+        // Création des combobox pour les filtres
+        Set<String> inds = new TreeSet<>();
+        Set<String> countries = new TreeSet<>();
+        Set<Integer> years = new TreeSet<>();
+        for (AIImpactData row : d) {
+            inds.add(row.getIndustry());
+            countries.add(row.getCountry());
+            years.add(row.getYear());
         }
 
-        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
-            double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
-            dataset.addValue(avg, fieldLabel, entry.getKey());
-        }
+        JComboBox<String> indBox = new JComboBox<>(inds.toArray(new String[0]));
+        JComboBox<String> countryBox = new JComboBox<>();
+        countryBox.addItem("Tous les pays");
+        for (String c : countries) countryBox.addItem(c);
 
-        JFreeChart barChart = ChartFactory.createBarChart(
-                "Moyenne de " + fieldLabel + " par Pays",
-                "Pays",
-                fieldLabel,
-                dataset
-        );
+        JComboBox<String> yearBox = new JComboBox<>();
+        yearBox.addItem("Toutes les années");
+        for (Integer y : years) yearBox.addItem(String.valueOf(y));
 
-        ChartPanel chartPanel = new ChartPanel(barChart);
-        JFrame chartFrame = new JFrame("Graphique - " + fieldLabel);
-        chartFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        chartFrame.setSize(800, 500);
-        chartFrame.add(chartPanel);
-        chartFrame.setVisible(true);
-    }
+        JComboBox<String> chartTypeBox = new JComboBox<>(new String[]{"Barres", "Circulaire", "Nuage de points", "Courbe"});
+        JComboBox<String> xAxisBox = new JComboBox<>(fields);
+        JComboBox<String> yAxisBox = new JComboBox<>(fields);
 
-    public void showIndustryFilteredChart(List<AIImpactData> dataList, String industryFilter, String critereLabel) {
-        Map<String, List<Double>> valuesByCountry = new HashMap<>();
+        indBox.setBackground(new Color(50,50,50));
+        indBox.setForeground(Color.WHITE);
+        indBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
 
-        for (AIImpactData data : dataList) {
-            if (!data.getIndustry().equalsIgnoreCase(industryFilter)) continue;
+        countryBox.setBackground(new Color(50,50,50));
+        countryBox.setForeground(Color.WHITE);
+        countryBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
 
-            double value;
-            switch (critereLabel) {
-                case "Job Loss (%)": value = data.getJobLossRate(); break;
-                case "AI Adoption (%)": value = data.getAiAdoptionRate(); break;
-                case "Revenue Increase (%)": value = data.getRevenueIncrease(); break;
-                case "Collab. Rate (%)": value = data.getCollaborationRate(); break;
-                case "Trust (%)": value = data.getConsumerTrust(); break;
-                case "Market Share (%)": value = data.getMarketShare(); break;
-                case "Content Volume (TB)": value = data.getContentVolume(); break;
-                default: continue;
+        yearBox.setBackground(new Color(50,50,50));
+        yearBox.setForeground(Color.WHITE);
+        yearBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        chartTypeBox.setBackground(new Color(50,50,50));
+        chartTypeBox.setForeground(Color.WHITE);
+        chartTypeBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        xAxisBox.setBackground(new Color(50,50,50));
+        xAxisBox.setForeground(Color.WHITE);
+        xAxisBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        yAxisBox.setBackground(new Color(50,50,50));
+        yAxisBox.setForeground(Color.WHITE);
+        yAxisBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+        JButton btn = new JButton("Afficher graphique filtré");
+        btn.setBackground(new Color(60,60,60));
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("SansSerif", Font.BOLD, 13));
+
+        btn.addActionListener(e -> {
+            String industry = (String) indBox.getSelectedItem();
+            String country = (String) countryBox.getSelectedItem();
+            String yearStr = (String) yearBox.getSelectedItem();
+            String type = (String) chartTypeBox.getSelectedItem();
+            String xCrit = (String) xAxisBox.getSelectedItem();
+            String yCrit = (String) yAxisBox.getSelectedItem();
+
+            List<AIImpactData> filtered = new ArrayList<>();
+            for (AIImpactData x : d) {
+                boolean matchIndustry = x.getIndustry().equalsIgnoreCase(industry);
+                boolean matchCountry = country.equals("Tous les pays") || x.getCountry().equalsIgnoreCase(country);
+                boolean matchYear = yearStr.equals("Toutes les années") || x.getYear() == Integer.parseInt(yearStr);
+                if (matchIndustry && matchCountry && matchYear) {
+                    filtered.add(x);
+                }
             }
 
-            valuesByCountry.computeIfAbsent(data.getCountry(), k -> new ArrayList<>()).add(value);
+            if (filtered.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Aucune donnée trouvée pour les filtres sélectionnés.");
+                return;
+            }
+
+            switch (type) {
+                case "Circulaire" -> showPieChartByField(filtered, yCrit);
+                case "Barres" -> showBarChartByField(filtered, yCrit);
+                case "Nuage de points" -> showScatterPlot(filtered, xCrit, yCrit);
+                case "Courbe" -> showLineChart(filtered, yCrit);
+            }
+        });
+
+        filt.add(new JLabel("Industrie :"));
+        filt.add(indBox);
+        filt.add(new JLabel("Pays :"));
+        filt.add(countryBox);
+        filt.add(new JLabel("Année :"));
+        filt.add(yearBox);
+        filt.add(new JLabel("Type :"));
+        filt.add(chartTypeBox);
+        filt.add(new JLabel("X Axis :"));
+        filt.add(xAxisBox);
+        filt.add(new JLabel("Y Axis :"));
+        filt.add(yAxisBox);
+        filt.add(btn);
+
+        // Création du cadre principal
+        JFrame fr = new JFrame("AI Impact Viewer - Dark");
+        fr.setSize(1300, 800);
+        fr.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        fr.getContentPane().setBackground(new Color(20,20,20));
+        fr.setLayout(new BorderLayout());
+        fr.add(top, BorderLayout.NORTH);
+        fr.add(sp, BorderLayout.CENTER);
+        fr.add(filt, BorderLayout.SOUTH);
+        fr.setVisible(true);
+    }
+    // Méthode pour afficher un graphique en courbes (Line Chart)
+    public void showLineChart(List<AIImpactData> d, String yCrit) {
+        // Création d'une map pour stocker les données par année
+        Map<Integer, List<Double>> yearData = new HashMap<>();
+
+        // Parcours des données pour remplir la map avec les valeurs par année
+        for (AIImpactData x : d) {
+            // Récupérer la valeur du critère choisi pour chaque entrée
+            double value = switch (yCrit) {
+                case "AI Adoption (%)" -> x.getAiAdoptionRate();
+                case "Job Loss (%)" -> x.getJobLossRate();
+                case "Revenue Increase (%)" -> x.getRevenueIncrease();
+                case "Collab. Rate (%)" -> x.getCollaborationRate();
+                case "Trust (%)" -> x.getConsumerTrust();
+                case "Market Share (%)" -> x.getMarketShare();
+                case "Content Volume (TB)" -> x.getContentVolume();
+                default -> 0;  // Valeur par défaut si aucun critère ne correspond
+            };
+
+            // Ajout des valeurs par année à la map
+            yearData.computeIfAbsent(x.getYear(), k -> new ArrayList<>()).add(value);
         }
 
-        if (valuesByCountry.isEmpty()) {
-            JOptionPane.showMessageDialog(null,
-                    "Aucune donnée trouvée pour l'industrie : " + industryFilter,
-                    "Alerte", JOptionPane.WARNING_MESSAGE);
-            return;
+        // Calcul de la moyenne par année
+        Map<Integer, Double> yearlyAvg = new HashMap<>();
+        for (Map.Entry<Integer, List<Double>> entry : yearData.entrySet()) {
+            double sum = 0;
+            // Calcul de la somme des valeurs pour chaque année
+            for (double v : entry.getValue()) {
+                sum += v;
+            }
+            // Ajout de la moyenne dans la map
+            yearlyAvg.put(entry.getKey(), sum / entry.getValue().size());
         }
 
-        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-        for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
-            double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
-            dataset.addValue(avg, critereLabel, entry.getKey());
+        // Création de la série de données pour le graphique en courbes
+        XYSeries series = new XYSeries(yCrit);
+        for (Map.Entry<Integer, Double> entry : yearlyAvg.entrySet()) {
+            series.add(entry.getKey(), entry.getValue());  // Ajout de chaque année avec sa moyenne
         }
 
-        JFreeChart chart = ChartFactory.createBarChart(
-                critereLabel + " - Industrie : " + industryFilter,
-                "Pays",
-                critereLabel,
-                dataset
+        // Création du dataset pour le graphique
+        XYSeriesCollection dataset = new XYSeriesCollection(series);
+        // Création du graphique en courbes avec les données et légendes
+        JFreeChart lineChart = ChartFactory.createXYLineChart(
+                "Évolution de " + yCrit + " par année", "Année", yCrit, // Titre et légendes
+                dataset, PlotOrientation.VERTICAL, true, true, false
         );
 
-        ChartPanel chartPanel = new ChartPanel(chart);
-        JFrame chartFrame = new JFrame("Graphique filtré - " + industryFilter);
-        chartFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        chartFrame.setSize(800, 500);
-        chartFrame.add(chartPanel);
-        chartFrame.setVisible(true);
+        // Affichage du graphique dans une nouvelle fenêtre
+        JFrame fr = new JFrame("Graphique en courbes");
+        fr.setSize(800, 500);
+        fr.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        fr.add(new ChartPanel(lineChart));
+        fr.setVisible(true);
     }
+
+    // Méthode pour afficher un graphique en barres (Bar Chart)
+    public void showBarChartByField(List<AIImpactData> d, String f) {
+        Map<String, List<Double>> vals = new HashMap<>();
+        // Collecte des données pour chaque pays
+        for (AIImpactData x : d) {
+            double v = switch (f) {
+                case "Job Loss (%)" -> x.getJobLossRate();
+                case "AI Adoption (%)" -> x.getAiAdoptionRate();
+                case "Revenue Increase (%)" -> x.getRevenueIncrease();
+                case "Collab. Rate (%)" -> x.getCollaborationRate();
+                case "Trust (%)" -> x.getConsumerTrust();
+                case "Market Share (%)" -> x.getMarketShare();
+                case "Content Volume (TB)" -> x.getContentVolume();
+                default -> 0;
+            };
+            // Regroupement des valeurs par pays
+            vals.computeIfAbsent(x.getCountry(), k -> new ArrayList<>()).add(v);
+        }
+
+        // Création du dataset pour le graphique
+        DefaultCategoryDataset ds = new DefaultCategoryDataset();
+        for (String k : vals.keySet()) {
+            List<Double> list = vals.get(k);
+            double sum = 0;
+            // Calcul de la somme des valeurs pour chaque pays
+            for (double x : list) sum += x;
+            ds.addValue(sum / list.size(), f, k);  // Calcul de la moyenne par pays et ajout au dataset
+        }
+
+        // Création du graphique en barres
+        JFreeChart chart = ChartFactory.createBarChart("Moyenne " + f + " par pays", "Pays", f, ds);
+        // Affichage du graphique dans une nouvelle fenêtre
+        JFrame fr = new JFrame("Graphique Barres");
+        fr.setSize(800, 500);
+        fr.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        fr.add(new ChartPanel(chart));
+        fr.pack();
+        fr.setVisible(true);
+    }
+
+    // Méthode pour afficher un graphique circulaire (Pie Chart)
+    public void showPieChartByField(List<AIImpactData> d, String f) {
+        Map<String, Double> countryAverages = new HashMap<>();
+
+        // Collecte des valeurs pour chaque pays
+        for (AIImpactData x : d) {
+            double v = switch (f) {
+                case "Job Loss (%)" -> x.getJobLossRate();
+                case "AI Adoption (%)" -> x.getAiAdoptionRate();
+                case "Revenue Increase (%)" -> x.getRevenueIncrease();
+                case "Collab. Rate (%)" -> x.getCollaborationRate();
+                case "Trust (%)" -> x.getConsumerTrust();
+                case "Market Share (%)" -> x.getMarketShare();
+                case "Content Volume (TB)" -> x.getContentVolume();
+                default -> 0;
+            };
+            // Regroupe les valeurs par pays pour calculer les moyennes
+            countryAverages.merge(x.getCountry(), v, Double::sum);
+        }
+
+        // Création de la map pour compter le nombre d'entrées par pays
+        Map<String, Integer> countryCounts = new HashMap<>();
+        for (AIImpactData x : d) {
+            countryCounts.merge(x.getCountry(), 1, Integer::sum);
+        }
+
+        // Calcul de la moyenne pour chaque pays
+        for (String country : countryAverages.keySet()) {
+            double sum = countryAverages.get(country);
+            int count = countryCounts.getOrDefault(country, 1);
+            countryAverages.put(country, sum / count);  // Calcul de la moyenne
+        }
+
+        // Création du dataset pour le graphique circulaire
+        DefaultPieDataset pieDataset = new DefaultPieDataset();
+        for (Map.Entry<String, Double> entry : countryAverages.entrySet()) {
+            pieDataset.setValue(entry.getKey(), entry.getValue());  // Ajout des valeurs au dataset
+        }
+
+        // Création du graphique circulaire
+        JFreeChart pieChart = ChartFactory.createPieChart(
+                "Répartition de la moyenne de " + f + " par pays", pieDataset, true, true, false
+        );
+
+        // Affichage du graphique dans une nouvelle fenêtre
+        JFrame fr = new JFrame("Graphique Circulaire");
+        fr.setSize(800, 500);
+        fr.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        fr.add(new ChartPanel(pieChart));
+        fr.setVisible(true);
+    }
+
+
+
 }

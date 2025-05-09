@@ -1,5 +1,5 @@
 Hello,
-This is a project from my University.
+This is a project formy university.
 First step to have the file is to download the files : 
 
   - You can use "git clone ...."

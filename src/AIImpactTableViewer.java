@@ -5,7 +5,7 @@ import java.util.*;
 import java.util.List;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import org.jfree.chart.*;
+import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.PlotOrientation;
@@ -197,7 +197,11 @@ public class AIImpactTableViewer  {
             years.add(row.getYear());
         }
 
-        JComboBox<String> indBox = new JComboBox<>(inds.toArray(new String[0]));
+        List<String> industriesList = new ArrayList<>(inds);
+        Collections.sort(industriesList); // (Optionnel : pour garder un tri alphabétique)
+        industriesList.add(0, "Toutes les industries"); // Ajoute en première position
+        JComboBox<String> indBox = new JComboBox<>(industriesList.toArray(new String[0]));
+
         JComboBox<String> countryBox = new JComboBox<>();
         countryBox.addItem("Tous les pays");
         for (String c : countries) countryBox.addItem(c);
@@ -238,6 +242,23 @@ public class AIImpactTableViewer  {
         btn.setBackground(new Color(60,60,60));
         btn.setForeground(Color.WHITE);
         btn.setFont(new Font("SansSerif", Font.BOLD, 13));
+
+        // Bouton personnalisé
+        JButton btnGlobalAverage = new JButton("Moyenne (toutes industries)");
+        btnGlobalAverage.setBackground(new Color(60,60,60));
+        btnGlobalAverage.setForeground(Color.WHITE);
+        btnGlobalAverage.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnGlobalAverage.addActionListener(e -> {
+            String selectedField = (String) yAxisBox.getSelectedItem();
+            String selectedYear = (String) yearBox.getSelectedItem();
+            String selectedCountry = (String) countryBox.getSelectedItem();
+            String selectedGraphType = (String) chartTypeBox.getSelectedItem();
+            showGlobalAverageChart(d, selectedField, selectedYear, selectedCountry, selectedGraphType);
+        });
+        filt.add(btnGlobalAverage);
+
+
+
 
         btn.addActionListener(e -> {
             String industry = (String) indBox.getSelectedItem();
@@ -295,6 +316,99 @@ public class AIImpactTableViewer  {
         fr.add(filt, BorderLayout.SOUTH);
         fr.setVisible(true);
     }
+
+    public void showGlobalAverageChart(List<AIImpactData> dataList, String selectedField, String selectedYear, String selectedCountry, String selectedGraphType) {
+        boolean allYears = selectedYear.equalsIgnoreCase("Toutes les années");
+        boolean allCountries = selectedCountry.equalsIgnoreCase("Tous les pays");
+
+        Map<String, List<Double>> valuesByCountry = new HashMap<>();
+
+        for (AIImpactData data : dataList) {
+            if (!allYears && data.getYear() != Integer.parseInt(selectedYear)) continue;
+            if (!allCountries && !data.getCountry().equalsIgnoreCase(selectedCountry)) continue;
+
+            double value = switch (selectedField) {
+                case "Job Loss (%)" -> data.getJobLossRate();
+                case "AI Adoption (%)" -> data.getAiAdoptionRate();
+                case "Revenue Increase (%)" -> data.getRevenueIncrease();
+                case "Collab. Rate (%)" -> data.getCollaborationRate();
+                case "Trust (%)" -> data.getConsumerTrust();
+                case "Market Share (%)" -> data.getMarketShare();
+                case "Content Volume (TB)" -> data.getContentVolume();
+                default -> -1;
+            };
+            if (value >= 0) {
+                valuesByCountry.computeIfAbsent(data.getCountry(), k -> new ArrayList<>()).add(value);
+            }
+        }
+
+        if (valuesByCountry.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "Aucune donnée trouvée pour les filtres sélectionnés.");
+            return;
+        }
+
+        switch (selectedGraphType) {
+            case "Barres" -> {
+                DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+                for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
+                    double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+                    dataset.addValue(avg, selectedField, entry.getKey());
+                }
+                JFreeChart chart = ChartFactory.createBarChart(
+                        "Moyenne globale de " + selectedField,
+                        "Pays",
+                        selectedField,
+                        dataset
+                );
+                showChartInDialog(chart, "Graphique global - " + selectedField);
+            }
+            case "Circulaire" -> {
+                org.jfree.data.general.DefaultPieDataset dataset = new org.jfree.data.general.DefaultPieDataset();
+                for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
+                    double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+                    dataset.setValue(entry.getKey(), avg);
+                }
+                JFreeChart chart = ChartFactory.createPieChart(
+                        "Moyenne globale de " + selectedField,
+                        dataset,
+                        true, true, false
+                );
+                showChartInDialog(chart, "Graphique circulaire global");
+            }
+            case "Nuage de points" -> {
+                org.jfree.data.xy.XYSeries series = new org.jfree.data.xy.XYSeries("Pays");
+                for (Map.Entry<String, List<Double>> entry : valuesByCountry.entrySet()) {
+                    double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+                    series.add(avg, avg); // x == y pour visualiser la moyenne par pays
+                }
+                org.jfree.data.xy.XYSeriesCollection dataset = new org.jfree.data.xy.XYSeriesCollection();
+                dataset.addSeries(series);
+                JFreeChart chart = ChartFactory.createScatterPlot(
+                        "Moyenne globale de " + selectedField,
+                        selectedField,
+                        selectedField,
+                        dataset
+                );
+                showChartInDialog(chart, "Nuage de points global");
+            }
+            default -> JOptionPane.showMessageDialog(null, "Type de graphique non reconnu.");
+        }
+    }
+
+    private void showChartInDialog(JFreeChart chart, String title) {
+        JFrame frame = new JFrame(title);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(800, 500);
+        frame.add(new ChartPanel(chart));
+        frame.setVisible(true);
+    }
+
+
+
+
+
+
+
     // Méthode pour afficher un graphique en courbes (Line Chart)
     public void showLineChart(List<AIImpactData> d, String yCrit) {
         // Création d'une map pour stocker les données par année
